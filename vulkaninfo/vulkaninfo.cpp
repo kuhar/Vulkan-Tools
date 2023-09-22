@@ -27,6 +27,7 @@
  *
  */
 
+#include <vulkan/vulkan_core.h>
 #ifdef _WIN32
 #include <crtdbg.h>
 #endif
@@ -1189,6 +1190,46 @@ int main(int argc, char **argv) {
 
         // Call the printer's destructor before the file handle gets closed
         printer.reset(nullptr);
+
+        for (auto pd : phys_devices) {
+            std::cout << "JAKUB: physical device: " << pd << "\n";
+            uint32_t cnt = 0;
+            VkResult res = instance.ext_funcs.vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR(pd, &cnt, nullptr);
+            std::cout << "\tres: " << res << ", cnt: " << cnt << "\n";
+            std::vector<VkCooperativeMatrixPropertiesKHR> props(cnt);
+            res = instance.ext_funcs.vkGetPhysicalDeviceCooperativeMatrixPropertiesKHR(pd, &cnt, props.data());
+            int i = 0;
+            for (auto &prop : props) {
+                auto typeToStr = [](VkComponentTypeKHR ct) {
+                    switch (ct) {
+#define STR(X) \
+    case X:    \
+        return (#X) + strlen("VK_COMPONENT_TYPE_");
+                        STR(VK_COMPONENT_TYPE_FLOAT16_KHR);
+                        STR(VK_COMPONENT_TYPE_FLOAT32_KHR);
+                        STR(VK_COMPONENT_TYPE_FLOAT64_KHR);
+                        STR(VK_COMPONENT_TYPE_SINT8_KHR);
+                        STR(VK_COMPONENT_TYPE_SINT16_KHR);
+                        STR(VK_COMPONENT_TYPE_SINT32_KHR);
+                        STR(VK_COMPONENT_TYPE_SINT64_KHR);
+                        STR(VK_COMPONENT_TYPE_UINT8_KHR);
+                        STR(VK_COMPONENT_TYPE_UINT16_KHR);
+                        STR(VK_COMPONENT_TYPE_UINT32_KHR);
+                        STR(VK_COMPONENT_TYPE_UINT64_KHR);
+                        STR(VK_COMPONENT_TYPE_MAX_ENUM_KHR);
+#undef STR
+                    }
+                    return "<unknown>";
+                };
+
+                std::cout << "coop prop [" << (i++) << "]\n";
+                std::cout << "\tsize: " << prop.MSize << "x" << prop.NSize << "x" << prop.KSize << "\n";
+                std::cout << "\ttypes: " << typeToStr(prop.AType) << " x " << typeToStr(prop.BType) << " x "
+                          << typeToStr(prop.CType) << " -> " << typeToStr(prop.ResultType) << "\n";
+                std::cout << "\tacc sat: " << prop.saturatingAccumulation << "\n";
+                std::cout << "\tscope: " << (prop.scope == 3 ? "Subgroup" : "unhandled") << "\n";
+            }
+        }
 #if defined(VULKANINFO_WSI_ENABLED)
         for (auto &surface_extension : instance.surface_extensions) {
             AppDestroySurface(instance, surface_extension.surface);
